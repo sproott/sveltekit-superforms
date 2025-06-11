@@ -152,6 +152,46 @@ describe('Default discriminated union values 2', () => {
 		await validate(data, FormSchema);
 	});
 
+	test('Default value with *matching* type in nested discriminated union with superRefine', async () => {
+		const ZodSchema2 = z
+			.object({
+				type: z.literal('additional'),
+				additional: z
+					.discriminatedUnion('type', [
+						z.object({
+							type: z.literal('same'),
+							address: z.string().nullable()
+						}),
+						z.object({
+							type: z.literal('different'),
+							address: z.string()
+						})
+					])
+					.default({
+						type: 'same',
+						address: null
+					})
+			})
+			.superRefine((_data, ctx) => {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['addresses', 'additional', 'name'],
+					message: 'error'
+				});
+			});
+
+		const FormSchema = zod(ZodSchema2);
+		type FormSchema = (typeof FormSchema)['defaults'];
+		const data = {
+			type: 'additional',
+			additional: {
+				type: 'different',
+				address: '123 Main St'
+			}
+		} satisfies FormSchema;
+		await validate(data, FormSchema);
+	});
+
 	test('Good', async () => {
 		const data = {
 			addresses: {
