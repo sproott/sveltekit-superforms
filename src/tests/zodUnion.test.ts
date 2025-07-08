@@ -296,3 +296,49 @@ test('Keep valid value in nested discriminated union with superRefine', async ()
 
 	expect(result.data.extra.value).toBe(42);
 });
+
+test('Keep supplied default value in nested discriminated union', async () => {
+	const ZodSchema2 = z
+		.object({
+			type: z.literal('additional'),
+			value: z.string(),
+			extra: z.discriminatedUnion('type', [
+				z.object({
+					type: z.literal('num'),
+					value: z.number()
+				}),
+				z.object({
+					type: z.literal('complex'),
+					value: z
+						.discriminatedUnion('type', [
+							z.object({
+								type: z.literal('string'),
+								value: z.string()
+							}),
+							z.object({
+								type: z.literal('number'),
+								value: z.number()
+							})
+						])
+						.default({
+							type: 'string',
+							value: ''
+						})
+				})
+			])
+		})
+
+	const FormSchema = zod(ZodSchema2);
+	type FormSchema = (typeof FormSchema)['defaults'];
+	const data = {
+		type: 'additional',
+		value: 'test',
+		extra: {
+			type: 'num',
+			value: null as unknown as number
+		}
+	} satisfies FormSchema;
+	const result = await validate(data, FormSchema);
+
+	expect(result.data.extra.value).toBe(null);
+});
